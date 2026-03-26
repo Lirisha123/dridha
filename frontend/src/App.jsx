@@ -52,9 +52,28 @@ export default function App() {
       }
     }
 
-    poll();
-    pollRef.current = window.setInterval(poll, 3500);
-    return () => window.clearInterval(pollRef.current);
+    let cancelled = false;
+
+    async function boot() {
+      try {
+        await fetch(`${API_BASE}/api/session/reset`, { method: "DELETE" });
+      } catch {
+        // Ignore reset failures and continue polling current state.
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      await poll();
+      pollRef.current = window.setInterval(poll, 3500);
+    }
+
+    boot();
+    return () => {
+      cancelled = true;
+      window.clearInterval(pollRef.current);
+    };
   }, []);
 
   useEffect(() => {
