@@ -70,6 +70,7 @@ is_monitoring = False
 waypoint_seq = 1
 main_loop = {"loop": None}
 poller_ref = {"thread": None, "stop": None}
+active_session_id = None
 
 
 def ts():
@@ -424,16 +425,37 @@ def process_drive_image(session: dict, image_file: dict):
     sync_broadcast(f"[WEED] {len(valid_boxes)} weed(s) at {metadata['lat']}, {metadata['lon']} - waypoint saved", "weed")
 
 
+def choose_active_session(sessions: list[dict]):
+    if not sessions:
+        return None
+    return max(
+        sessions,
+        key=lambda item: item.get("modifiedTime") or item.get("createdTime") or "",
+    )
+
+
 def snapshot_existing_drive_files():
+    global active_session_id
+
     if not DRIVE_ROOT_FOLDER_ID or not drive_service:
         return
 
     session_folders = list_drive_children(DRIVE_ROOT_FOLDER_ID, "application/vnd.google-apps.folder")
+    latest_session = choose_active_session(session_folders)
+    active_session_id = latest_session["id"] if latest_session else None
+
     for session in session_folders:
         seen_session_ids.add(session["id"])
+        if session["id"] == active_session_id:
+            continue
         for item in list_drive_children(session["id"]):
             if is_image_file(item):
                 processed_file_ids.add(item["id"])
+
+
+def get_latest_session():
+    sessions = list_drive_children(DRIVE_ROOT_FOLDER_ID, "application/vnd.google-apps.folder")
+    return choose_active_session(sessions)
 
 
 def poll_drive():
@@ -441,14 +463,20 @@ def poll_drive():
     poller_ref["stop"] = stop_event
 
     def loop():
+        global active_session_id
+
         while not stop_event.is_set():
             try:
                 if drive_service and DRIVE_ROOT_FOLDER_ID:
-                    sessions = list_drive_children(DRIVE_ROOT_FOLDER_ID, "application/vnd.google-apps.folder")
-                    for session in sessions:
-                        for item in list_drive_children(session["id"]):
+                    latest_session = get_latest_session()
+                    if latest_session:
+                        if latest_session["id"] != active_session_id:
+                            active_session_id = latest_session["id"]
+                            sync_broadcast(f"[SYSTEM] Active session switched to {latest_session['name']}", "system")
+
+                        for item in list_drive_children(latest_session["id"]):
                             if is_image_file(item):
-                                process_drive_image(session, item)
+                                process_drive_image(latest_session, item)
             except Exception as exc:
                 sync_broadcast(f"[WARN] Drive polling error: {exc}", "warn")
 
