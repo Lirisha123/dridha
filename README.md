@@ -1,3 +1,12 @@
+---
+title: Dridha
+emoji: 🌿
+colorFrom: green
+colorTo: blue
+sdk: docker
+pinned: false
+---
+
 # Dridha Weed Detection System
 ### Full-stack dashboard for drone-based AI weed detection
 
