@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: dridha-backend
+    env: python
+    rootDir: backend
+    buildCommand: python -m pip install -r requirements.txt --upgrade
+    startCommand: python -m uvicorn server:app --host 0.0.0.0 --port $PORT

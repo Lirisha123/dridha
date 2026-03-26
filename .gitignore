@@ -1,0 +1,16 @@
+frontend/node_modules/
+frontend/dist/
+backend/__pycache__/
+backend/annotated/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+Thumbs.db
+backend/service_account_compact.txt
+backend/*.waypoints
+backend/*.log
+backend/.env
+frontend/.env
+*.pem
+*.key

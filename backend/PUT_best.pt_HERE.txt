@@ -1,0 +1,4 @@
+COPY YOUR best.pt FILE HERE
+
+Place your YOLO model file (best.pt) in this folder alongside server.py.
+The server will automatically load it on startup.
