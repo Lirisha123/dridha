@@ -14,6 +14,7 @@ import torch
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
@@ -26,6 +27,8 @@ WAYPOINTS_FILE = Path(os.getenv("DRIDHA_WAYPOINTS_FILE", str(BASE_DIR / "Dridha_
 CACHE_DIR = BASE_DIR / "cache"
 ORIGINALS_DIR = CACHE_DIR / "originals"
 ANNOTATED_DIR = CACHE_DIR / "annotated"
+FRONTEND_DIST_DIR = (BASE_DIR.parent / "frontend" / "dist").resolve()
+FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
 
 DRIVE_ROOT_FOLDER_ID = os.getenv("DRIDHA_DRIVE_ROOT_FOLDER_ID", "").strip()
 POLL_INTERVAL_SECONDS = float(os.getenv("DRIDHA_POLL_INTERVAL_SECONDS", "4"))
@@ -50,6 +53,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+if FRONTEND_ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_ASSETS_DIR)), name="assets")
 
 model = None
 drive_service = None
@@ -580,3 +586,26 @@ async def reset_session():
     reset_runtime_state(preserve_drive_seen=True)
     await broadcast("[SYSTEM] Session reset", "system")
     return {"ok": True}
+
+
+@app.get("/")
+def serve_frontend():
+    index_path = FRONTEND_DIST_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return JSONResponse({"error": "Frontend build not found"}, status_code=404)
+
+
+@app.get("/{full_path:path}")
+def serve_frontend_routes(full_path: str):
+    if full_path.startswith(("api/", "ws/")):
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    candidate = FRONTEND_DIST_DIR / full_path
+    if candidate.exists() and candidate.is_file():
+        return FileResponse(str(candidate))
+
+    index_path = FRONTEND_DIST_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return JSONResponse({"error": "Frontend build not found"}, status_code=404)
